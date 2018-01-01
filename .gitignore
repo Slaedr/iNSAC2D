@@ -1,0 +1,15 @@
+*.swp
+*.directory
+
+build/** 
+
+*.vtu
+*.control
+*.log
+*.err
+*.out
+
+\#*\#
+
+TAGS
+tags
