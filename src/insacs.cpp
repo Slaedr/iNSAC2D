@@ -3,9 +3,7 @@
  */
 
 #include <ins.hpp>
-#ifndef __AOUTPUT_STRUCT_H
 #include <aoutput_struct.hpp>
-#endif
 
 using namespace amat;
 using namespace acfd;

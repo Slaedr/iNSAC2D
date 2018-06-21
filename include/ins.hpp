@@ -350,34 +350,34 @@ void Steady_insac::compute_timesteps()
 {
 	//cout << "Steady_insac: compute_timesteps(): Now computing time steps for next iteration..." << endl;
 
-//#pragma omp parallel for default(shared)
 	for(int i = 1; i <= m->gimx()-1; i++)
 		for(int j = 1; j <= m->gjmx()-1; j++)
 		{
 			// area vectors and unit normal vectors
-			std::array<double,NDIM> areavi, areavj, inormal, jnormal;
+			std::array<a_real,NDIM> areavi, areavj, inormal, jnormal;
+
 			for(int dim = 0; dim < NDIM; dim++) 
 			{
 				areavi[dim] = 0.5*(m->gdel(i,j,dim) + m->gdel(i-1,j,dim));
 				areavj[dim] = 0.5*(m->gdel(i,j,2+dim) + m->gdel(i,j-1,2+dim));
 			}
-			double areai = sqrt(areavi[0]*areavi[0] + areavi[1]*areavi[1]);
-			double areaj = sqrt(areavj[0]*areavj[0] + areavj[1]*areavj[1]);
+			a_real areai = sqrt(areavi[0]*areavi[0] + areavi[1]*areavi[1]);
+			a_real areaj = sqrt(areavj[0]*areavj[0] + areavj[1]*areavj[1]);
 			
-			for(int dim = 0; dim < ndim; dim++)
+			for(int dim = 0; dim < NDIM; dim++)
 			{
 				inormal[dim] = areavi[dim]/areai;
 				jnormal[dim] = areavj[dim]/areaj;
 			}
 			// we now have face geometrical info "at the cell centers"
 
-			double vdotni = u[1](i,j)*inormal[0] * u[2](i,j)*inormal[1];
-			double vdotnj = u[1](i,j)*jnormal[0] * u[2](i,j)*jnormal[1];
+			a_real vdotni = u[1](i,j)*inormal[0] * u[2](i,j)*inormal[1];
+			a_real vdotnj = u[1](i,j)*jnormal[0] * u[2](i,j)*jnormal[1];
 
-			double eigeni = 0.5*( fabs(vdotni) + sqrt(vdotni*vdotni + 4.0*beta(i,j)*beta(i,j)) );
-			double eigenj = 0.5*( fabs(vdotnj) + sqrt(vdotnj*vdotnj + 4.0*beta(i,j)*beta(i,j)) );
+			a_real eigeni = 0.5*( fabs(vdotni) + sqrt(vdotni*vdotni + 4.0*beta(i,j)*beta(i,j)) );
+			a_real eigenj = 0.5*( fabs(vdotnj) + sqrt(vdotnj*vdotnj + 4.0*beta(i,j)*beta(i,j)) );
 			
-			double voldt = eigeni*areai + eigenj*areaj;
+			a_real voldt = eigeni*areai + eigenj*areaj;
 			dt(i,j) = m->gvol(i,j)/voldt * cfl;
 		}
 }
@@ -397,8 +397,12 @@ void Steady_insac::setInitialConditions()
 		}
 }
 
-/** Make sure the [Steady_insac](@ref Steady_insac) object has been [setup](@ref setup) and initialized with some [initial condition](@ref setInitialConditions). Both the momentum-magnitude residual and the mass flux are taken as convergence criteria; the tolerance for the mass flux is the square-root of the tolerance for the relative momentum-magnitude residual. [tol](@ref tol) is the latter.
-*/
+/** Make sure the [Steady_insac](@ref Steady_insac) object has been [setup](@ref setup)
+ * and initialized with some [initial condition](@ref setInitialConditions).
+ * Both the momentum-magnitude residual and the mass flux are taken as convergence criteria;
+ * the tolerance for the mass flux is the square-root of the tolerance for
+ * the relative momentum-magnitude residual. [tol](@ref tol) is the latter.
+ */
 void Steady_insac::solve()
 {
 	setInitialConditions();
