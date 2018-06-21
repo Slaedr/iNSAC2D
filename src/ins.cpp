@@ -1,4 +1,6 @@
 
+#include <cmath>
+#include <limits>
 #include "ins.hpp"
 
 namespace acfd {
@@ -30,10 +32,6 @@ void Steady_insac::setup(Structmesh2d* mesh, double dens, double visc,
 		grad = new ThinLayerGradientIns;
 	
 	invf = new InviscidFlux;
-
-	/*u = new Array2d<double>[nvar];
-	res = new Array2d<double>[nvar];
-	visc_lhs = new Array2d<double>[5];*/
 
 	isalloc = true;
 
@@ -72,9 +70,6 @@ void Steady_insac::setup(Structmesh2d* mesh, double dens, double visc,
 Steady_insac::~Steady_insac()
 {
 	if(isalloc) {
-		/*delete [] u;
-		delete [] res;
-		delete [] visc_lhs;*/
 		delete grad;
 		delete invf;
 	}
@@ -356,9 +351,10 @@ void Steady_insac::solve()
 				massflux += res[0].get(i,j);
 			}
 		
-		resnorm = sqrt(resnorm);
+		resnorm = std::sqrt(resnorm);
 
-		if(!std::isfinite(resnorm)) {
+		// It is important to check both the quantities in the if below!
+		if(!std::isfinite(resnorm) || !std::isfinite(resnorm/resnorm0)) {
 			throw "Steady_insac: Pseudo time stepper diverged to inf or NaN!";
 		}
 
@@ -369,17 +365,20 @@ void Steady_insac::solve()
 			          << resnorm/resnorm0 << std::endl;
 			//std::cout << "  L2 norm of residual = " << resnorm << endl;
 		}
+
 		if(resnorm/resnorm0 < tol /*&& fabs(massflux) < sqrt(tol)*/)
 		{
 			std::cout << "Steady_insac: solve(): Converged in " << n
 			          << " iterations. Norm of final residual = " << resnorm
-				/* *(1.0/(m->gimx() - 1)/(m->gjmx()-1))*/
 			          << ", final net mass flux = " << massflux << std::endl;
+
+			if(massflux > std::numeric_limits<a_real>::epsilon())
+				throw "Mass flux is greater than machine epsilon!";
+
 			break;
 		}
 
 		// update u
-//#pragma omp parallel for default(shared)
 		for(int i = 1; i <= m->gimx()-1; i++)
 			for(int j = 1; j <= m->gjmx()-1; j++)
 			{

@@ -9,8 +9,9 @@
 
 namespace acfd {
 
-/** \brief Implements the main solution loop of stead-state iNS equations in artificial compressibility form.
-*/
+/** \brief Implements the steady-state solution loop
+ * of stead-state iNS equations in artificial compressibility form.
+ */
 class Steady_insac
 {
 	Structmesh2d* m;				///< Pointer to mesh.
