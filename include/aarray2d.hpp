@@ -225,57 +225,10 @@ public:
 		return min;
 	}
 
-	T average() const
-	{
-		T avg = 0;
-		for(a_int i = 0; i < size; i++)
-			avg += elems[i];
-		avg = avg/size;
-		return avg;
-	}
+	T average() const;
 
 	// Returns the vector 2-norm
-	T l2norm() const		
-	{
-		T tot = 0;
-		for(a_int i = 0; i < size; i++)
-		{
-			tot += elems[i]*elems[i];
-		}
-		tot = std::sqrt(tot);
-		return tot;
-	}
-
-	/*
-	/// Returns sum of products of respective elements of flattened arrays 
-	/// containing matrix elements of this and A
-	T dot_product(const Array2d<T>& A)
-	{
-		const T* elemsA = A.elems;
-		T ans = 0;
-		for(a_int i = 0; i < size; i++)
-		{
-			ans += elems[i]*elemsA[i];
-		}
-		return ans;
-	}
-
-	/// Computes 1-norm (max column-sum norm) of the matrix
-	T matrixNorm_1() const
-	{
-		T max = 0, sum;
-		a_int i,j;
-		for(j = 0; j < ncols; j++)
-		{
-			sum = 0;
-			for(i = 0; i < nrows; i++)
-			{
-				sum += (T)( fabs(get(i,j)) );
-			}
-			if(max < sum) max = sum;
-		}
-		return max;
-	}*/
+	T l2norm() const;
 };
 
 

@@ -3,13 +3,12 @@
  * @author Aditya Kashi
  */
 
-#ifndef __ACONSTANTS_H
+#ifndef INSAC_CONSTANTS_H
+#define INSAC_CONSTANTS_H
 
 #define NDIM 2
 #define NVARS 3
 	
-#define __ACONSTANTS_H 1
-
 #define PI 3.14159265358979323846
 
 /// tolerance to check if something is zero, ie, macine epsilon

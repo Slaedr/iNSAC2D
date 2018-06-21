@@ -21,16 +21,8 @@ Array2d<T>::Array2d() : nrows{0}, ncols{0}, size{0}, elems{nullptr}
 template <typename T>
 Array2d<T>::Array2d(a_int nr, a_int nc)
 {
-	if(nc==0)
-	{
-		std::cout << "\nError: Number of columns is zero. Setting it to 1.";
-		nc=1;
-	}
-	if(nr==0)
-	{
-		std::cout << "\nError: Number of rows is zero. Setting it to 1.";
-		nr=1;
-	}
+	assert(nr > 0);
+	assert(nc > 0);
 	nrows = nr; ncols = nc;
 	size = nrows*ncols;
 	elems = new T[nrows*ncols];
@@ -79,16 +71,8 @@ Array2d<T>& Array2d<T>::operator=(const Array2d<T>& rhs)
 template <typename T>
 void Array2d<T>::setup(const a_int nr, const a_int nc)
 {
-	if(nc==0)
-	{
-		std::cout << "Array2d: setup(): ! Error: Number of columns is zero!\n";
-		return;
-	}
-	if(nr==0)
-	{
-		std::cout << "Array2d(): setup(): ! Error: Number of rows is zero!\n";
-		return;
-	}
+	assert(nr > 0);
+	assert(nc > 0);
 	nrows = nr; ncols = nc;
 	size = nrows*ncols;
 	delete [] elems;
@@ -99,16 +83,8 @@ void Array2d<T>::setup(const a_int nr, const a_int nc)
 template <typename T>
 void Array2d<T>::resize(const a_int nr, const a_int nc)
 {
-	if(nc==0)
-	{
-		std::cout << "Array2d: setup(): ! Error: Number of columns is zero!\n";
-		return;
-	}
-	if(nr==0)
-	{
-		std::cout << "Array2d(): setup(): ! Error: Number of rows is zero!\n";
-		return;
-	}
+	assert(nr > 0);
+	assert(nc > 0);
 	nrows = nr; ncols = nc;
 	size = nrows*ncols;
 	delete [] elems;
@@ -117,19 +93,10 @@ void Array2d<T>::resize(const a_int nr, const a_int nc)
 
 /// Setup without deleting earlier allocation: use in case of Array2d<t>* (pointer to Array2d<t>)
 template <typename T>
-void Array2d<T>::setupraw(a_int nr, a_int nc)
+void Array2d<T>::setupraw(const a_int nr, const a_int nc)
 {
-	//std::cout << "\nEntered setupraw";
-	if(nc==0)
-	{
-		std::cout << "\nError: Number of columns is zero. Setting it to 1.";
-		nc=1;
-	}
-	if(nr==0)
-	{
-		std::cout << "\nError: Number of rows is zero. Setting it to 1.";
-		nr=1;
-	}
+	assert(nr > 0);
+	assert(nc > 0);
 	nrows = nr; ncols = nc;
 	size = nrows*ncols;
 	delete [] elems;
@@ -213,6 +180,61 @@ void Array2d<T>::fread(std::ifstream& infile)
 		for(a_int j = 0; j < ncols; j++)
 			infile >> elems[i*ncols + j];
 }
+
+template <typename T>
+T Array2d<T>::average() const
+{
+	T avg = 0;
+	for(a_int i = 0; i < size; i++)
+		avg += elems[i];
+	avg = avg/size;
+	return avg;
+}
+
+template <typename T>
+T Array2d<T>::l2norm() const
+{
+	T tot = 0;
+	for(a_int i = 0; i < size; i++)
+	{
+		tot += elems[i]*elems[i];
+	}
+	tot = std::sqrt(tot);
+	return tot;
+}
+
+/*
+/// Returns sum of products of respective elements of flattened arrays 
+/// containing matrix elements of this and A
+template <typename T>
+T Array2d<T>::dot_product(const Array2d<T>& A)
+{
+const T* elemsA = A.elems;
+T ans = 0;
+for(a_int i = 0; i < size; i++)
+{
+ans += elems[i]*elemsA[i];
+}
+return ans;
+}
+
+/// Computes 1-norm (max column-sum norm) of the matrix
+template <typename T>
+T Array2d<T>::matrixNorm_1() const
+{
+T max = 0, sum;
+a_int i,j;
+for(j = 0; j < ncols; j++)
+{
+sum = 0;
+for(i = 0; i < nrows; i++)
+{
+sum += (T)( fabs(get(i,j)) );
+}
+if(max < sum) max = sum;
+}
+return max;
+}*/
 
 template class Array2d<a_real>;
 template class Array2d<a_int>;
