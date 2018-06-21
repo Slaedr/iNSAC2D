@@ -357,6 +357,11 @@ void Steady_insac::solve()
 			}
 		
 		resnorm = sqrt(resnorm);
+
+		if(!std::isfinite(resnorm)) {
+			throw "Steady_insac: Pseudo time stepper diverged to inf or NaN!";
+		}
+
 		reslist.push_back(resnorm);
 		if(n == 0) resnorm0 = resnorm;
 		if(n == 1 || n%20 == 0) {
