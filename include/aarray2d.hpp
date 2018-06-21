@@ -186,9 +186,9 @@ public:
 
 	T absmax() const
 	{
-		T max = abs(elems[0]);
+		T max = std::abs(elems[0]);
 		for(a_int i = 0; i < size; i++)
-			if(abs(elems[i]) > max) max = abs(elems[i]);
+			if(std::abs(elems[i]) > max) max = std::abs(elems[i]);
 		return max;
 	}
 
