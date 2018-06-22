@@ -6,65 +6,109 @@
 
 namespace acfd {
 
-void PressureReconstruction::setup(Structmesh2d* mesh, amat::Array2d<double>* unknowns, amat::Array2d<double>* delp)
+static inline double minmod_avg(double a, double b)
 {
-	std::cout << "PressureReconstruction: Contructor called." << std::endl;
-	m = mesh;
-	u = unknowns;
-	dp = delp;
+	double signa, signb;
+	if(fabs(a) <= ZERO_TOL) signa = 0;
+	else signa = a/fabs(a);
+	if(fabs(b) <= ZERO_TOL) signb = 0;
+	else signb = b/fabs(b);
+
+	if(fabs(a) <= fabs(b))
+		return (signa+signb)*0.5*fabs(a);
+	else
+		return (signa+signb)*0.5*fabs(b);
 }
+
+PressureReconstruction::PressureReconstruction(const Structmesh2d& mesh)
+	: m{mesh}
+{ }
 
 PressureReconstruction::~PressureReconstruction() { }
 
-void BasicPR::compute_pressure_difference()
+BasicPR::BasicPR(const Structmesh2d& mesh) : PressureReconstruction(mesh) { }
+
+void BasicPR::compute_pressure_difference(const amat::Array2d<double> u[NDIM],
+                                          amat::Array2d<double> dp[NDIM]) const
 {
 	// we include the i=0 and j=0 ghost cells
-	for(int j = 0; j <= m->gjmx()-1; j++)
+	for(int j = 0; j <= m.gjmx()-1; j++)
 #pragma omp simd
-		for(int i = 0; i <= m->gimx()-1; i++)
+		for(int i = 0; i <= m.gimx()-1; i++)
 		{
-			dp[0](i,j) = u[0].get(i,j) - u[0].get(i+1,j);		// p_L - p_R
-			dp[1](i,j) = u[0].get(i,j) - u[0].get(i,j+1);		// p_L - p_R in j-direction, so it's more like p_down - p_up
+			dp[0](i,j) = u[0](i,j) - u[0](i+1,j);		// p_L - p_R
+			dp[1](i,j) = u[0](i,j) - u[0](i,j+1);		// p_L - p_R in j-direction,
+			// so it's more like p_down - p_up
 		}
 }
 
-void TVDPR::compute_pressure_difference()
+TVDPR::TVDPR(const Structmesh2d& mesh) : PressureReconstruction(mesh) { }
+
+void TVDPR::compute_pressure_difference(const amat::Array2d<double> u[NDIM],
+                                        amat::Array2d<double> dp[NDIM]) const
 {
-	int i,j;
-	for(j = 1; j <= m->gjmx()-2; j++)
-		for(i = 1; i <= m->gimx()-2; i++)
+	for(int j = 1; j <= m.gjmx()-2; j++)
+		for(int i = 1; i <= m.gimx()-2; i++)
 		{
-			dp[0](i,j) = u[0].get(i,j) +0.5*minmod_avg(u[0].get(i+1,j)-u[0](i,j), u[0].get(i,j)-u[0].get(i-1,j));				// p_L
-			dp[0](i,j) -= u[0].get(i+1,j) - 0.5*minmod_avg(u[0].get(i+1,j)-u[0].get(i,j), u[0].get(i+2,j)-u[0].get(i+1,j));		// p_R
-			dp[1](i,j) = u[0].get(i,j) +0.5*minmod_avg(u[0].get(i,j+1)-u[0](i,j), u[0].get(i,j)-u[0].get(i,j-1));				// p_down
-			dp[1](i,j) -= u[0].get(i,j+1) - 0.5*minmod_avg(u[0].get(i,j+1)-u[0].get(i,j), u[0].get(i,j+2)-u[0].get(i,j+1));		// p_up
+			dp[0](i,j) = u[0].get(i,j)
+				+0.5*minmod_avg(u[0](i+1,j)-u[0](i,j), u[0](i,j)-u[0](i-1,j));
+
+			dp[0](i,j) -= u[0](i+1,j)
+				- 0.5*minmod_avg(u[0](i+1,j)-u[0](i,j), u[0](i+2,j)-u[0](i+1,j));
+
+			dp[1](i,j) = u[0](i,j)
+				+0.5*minmod_avg(u[0](i,j+1)-u[0](i,j), u[0](i,j)-u[0](i,j-1));
+
+			dp[1](i,j) -= u[0](i,j+1)
+				- 0.5*minmod_avg(u[0](i,j+1)-u[0](i,j), u[0](i,j+2)-u[0](i,j+1));
 		}
 
 	// Now values for remaining cells (real or ghost) - just copy values from adjacent interior cells.
-	// We do not need values for cells i = imx and j = jmx (ghost cells). We also probably don't need dp for corner cells.
-	for(j = 1; j <= m->gjmx()-2; j++)
+	// We do not need values for cells i = imx and j = jmx (ghost cells).
+	// We also probably don't need dp for corner cells.
+	for(int j = 1; j <= m.gjmx()-2; j++)
 	{
 		dp[0](0,j) = dp[0](1,j);
-		dp[0](m->gimx()-1,j) = dp[0](m->gimx()-2,j);
-		dp[1](0,j) = u[0].get(0,j) +0.5*minmod_avg(u[0].get(0,j+1)-u[0](0,j), u[0].get(0,j)-u[0].get(0,j-1));				// p_down
-		dp[1](0,j) -= u[0].get(0,j+1) - 0.5*minmod_avg(u[0].get(0,j+1)-u[0].get(0,j), u[0].get(0,j+2)-u[0].get(0,j+1));		// p_up
-		dp[1](m->gimx()-1,j) = u[0].get(m->gimx()-1,j) +0.5*minmod_avg(u[0].get(m->gimx()-1,j+1)-u[0](m->gimx()-1,j), u[0].get(m->gimx()-1,j)-u[0].get(m->gimx()-1,j-1));
-		dp[1](m->gimx()-1,j) -= u[0].get(m->gimx()-1,j+1) -0.5*minmod_avg(u[0].get(m->gimx()-1,j+1)-u[0].get(m->gimx()-1,j), u[0].get(m->gimx()-1,j+2)-u[0].get(m->gimx()-1,j+1));
+		dp[0](m.gimx()-1,j) = dp[0](m.gimx()-2,j);
+		// p_down
+		dp[1](0,j) = u[0](0,j)
+			+ 0.5*minmod_avg(u[0](0,j+1)-u[0](0,j), u[0](0,j)-u[0](0,j-1))
+			// p_up
+			- u[0](0,j+1)
+			- 0.5*minmod_avg(u[0](0,j+1)-u[0](0,j), u[0](0,j+2)-u[0](0,j+1));
+
+		dp[1](m.gimx()-1,j) = u[0](m.gimx()-1,j)
+			+0.5*minmod_avg(u[0](m.gimx()-1,j+1)-u[0](m.gimx()-1,j),
+			                u[0](m.gimx()-1,j)-u[0](m.gimx()-1,j-1))
+			- u[0](m.gimx()-1,j+1)
+			- 0.5*minmod_avg(u[0](m.gimx()-1,j+1)-u[0](m.gimx()-1,j),
+			                 u[0](m.gimx()-1,j+2)-u[0](m.gimx()-1,j+1));
 	}
-	for(i = 1; i <= m->gimx()-2; i++)
+
+	for(int i = 1; i <= m.gimx()-2; i++)
 	{
 		dp[1](i,0) = dp[1](i,1);
-		dp[1](i,m->gjmx()-1) = dp[1](i,m->gjmx()-2);
-		dp[0](i,0) = u[0].get(i,0) +0.5*minmod_avg(u[0].get(i+1,0)-u[0](i,0), u[0].get(i,0)-u[0].get(i-1,0));				// p_L
-		dp[0](i,0) -= u[0].get(i+1,0) - 0.5*minmod_avg(u[0].get(i+1,0)-u[0].get(i,0), u[0].get(i+2,0)-u[0].get(i+1,0));		// p_R
-		dp[0](i,m->gjmx()-1) = u[0].get(i,j) +0.5*minmod_avg(u[0].get(i+1,j)-u[0](i,j), u[0].get(i,j)-u[0].get(i-1,j));
-		dp[0](i,m->gjmx()-1) -= u[0].get(i+1,m->gjmx()-1) - 0.5*minmod_avg(u[0].get(i+1,m->gjmx()-1)-u[0].get(i,m->gjmx()-1), u[0].get(i+2,m->gjmx()-1)-u[0].get(i+1,m->gjmx()-1));
+		dp[1](i,m.gjmx()-1) = dp[1](i,m.gjmx()-2);
+
+		dp[0](i,0) = u[0].get(i,0)
+			+0.5*minmod_avg(u[0](i+1,0)-u[0](i,0), u[0](i,0)-u[0](i-1,0))
+			- u[0](i+1,0)
+			- 0.5*minmod_avg(u[0](i+1,0)-u[0](i,0), u[0](i+2,0)-u[0](i+1,0));
+
+		dp[0](i,m.gjmx()-1) = u[0](i,m.gjmx()-2)
+			+ 0.5*minmod_avg(u[0](i+1,m.gjmx()-2)-u[0](i,m.gjmx()-2),
+			                 u[0](i,m.gjmx()-2)-u[0](i-1,m.gjmx()-2))
+			- u[0](i+1,m.gjmx()-1)
+			- 0.5*minmod_avg(u[0](i+1,m.gjmx()-1)-u[0](i,m.gjmx()-1),
+			                 u[0](i+2,m.gjmx()-1)-u[0](i+1,m.gjmx()-1));
 	}
 }
 
-void InviscidFlux::setup(Structmesh2d* mesh, amat::Array2d<double>* unknown, amat::Array2d<double>* residuals, amat::Array2d<double>* _beta, double _rho, std::string pressurereconstruction, std::vector<int> _bcflag, std::vector<std::vector<double>> _bvalues)
+void InviscidFlux::setup(Structmesh2d* mesh,
+                         amat::Array2d<double>* unknown, amat::Array2d<double>* residuals,
+                         amat::Array2d<double>* _beta, double _rho, std::string pressurerec,
+                         std::vector<int> _bcflag, std::vector<std::vector<double>> _bvalues)
 {
-	std::cout << "InviscidFlux: setup(): Setting up inviscid flux calculator" << std::endl;
 	m = mesh;
 	u = unknown;
 	res = residuals;
@@ -72,29 +116,20 @@ void InviscidFlux::setup(Structmesh2d* mesh, amat::Array2d<double>* unknown, ama
 	rho = _rho;
 	bvalues = _bvalues;
 	bcflags = _bcflag;
-	dp = new amat::Array2d<double>[2];
 	for(int i = 0; i<2; i++)
 		dp[i].setup(m->gimx()+1, m->gjmx()+1);
 	isallocdp = true;
 	
 	/// Sets the pressure reconstruction scheme to be used based on the last argument - "basic" or "TVD".
-	if(pressurereconstruction=="basic")
-	{
-		pr = new BasicPR;
-		std::cout << "InviscidFlux: setup(): BasicPR selected.\n";
-	}
-	else if(pressurereconstruction=="tvd")
-		pr = new TVDPR;
+	if(pressurerec=="tvd")
+		pr = new TVDPR(*m);
 	else {
-		std::cout << "InviscidFlux: setup(): Pressure reconstruction scheme requested does not exist. Choosing basic first-order scheme." << std::endl;
-		pr = new BasicPR;
+		std::cout << "InviscidFlux: setup(): Choosing basic first-order scheme." << std::endl;
+		pr = new BasicPR(*m);
 	}
-	pr->setup(m, unknown, dp);
 	
 	/// Rhie-Chow constant [c](@ref c) is maximum 0.5.
 	c = 0.5;
-	
-	nvar = 3;
 	
 	/*std::cout << "BC flags ";
 	for(int i = 0; i < 4; i++)
@@ -108,12 +143,12 @@ void InviscidFlux::setup(Structmesh2d* mesh, amat::Array2d<double>* unknown, ama
 	}*/
 	
 	// account for solid walls; ie bcflag values of 2 or 3
-	wall.resize(4);		// one flag for each of the 4 boundaries.
+	wall.resize(2*NDIM);		// one flag for each of the 4 boundaries.
 	for(int i = 0; i < 4; i++)
 		if(bcflags[i] == 2 || bcflags[i] == 3)
-			wall[i] = 0.0;
+			wall[i] = 0;
 		else
-			wall[i] = 1.0;
+			wall[i] = 1;
 	
 	/*std::cout << "Wall:";
 	for(int i = 0; i < 4; i++)
@@ -124,30 +159,28 @@ void InviscidFlux::setup(Structmesh2d* mesh, amat::Array2d<double>* unknown, ama
 InviscidFlux::~InviscidFlux()
 {
 	if(isallocdp) {
-		delete [] dp;
 		delete pr;
 	}
 }
 
 void InviscidFlux::compute_fluxes()
 {
-	pr->compute_pressure_difference();
+	pr->compute_pressure_difference(u, dp);
 
 	// add inviscid flux contribution to residuals
 	//std::cout << "InviscidFlux: compute_flux(): Computing inviscid fluxes now..." << std::endl;
-	int i, j, k;
 	double area, nx, ny, eigen, vdotn;
-	double bhalf2; std::vector<double> uhalf(nvar);			// interface values for each unknown
-	amat::Array2d<double> g(m->gimx(),nvar);
+	double bhalf2; std::vector<double> uhalf(NVARS);			// interface values for each unknown
+	amat::Array2d<double> g(m->gimx(),NVARS);
 	
-	for(j = 1; j <= m->gjmx()-1; j++)
+	for(int j = 1; j <= m->gjmx()-1; j++)
 	{
-		for(i = 0; i <= m->gimx()-1; i++)
+		for(int i = 0; i <= m->gimx()-1; i++)
 		{
 			area = sqrt(m->gdel(i,j,0)*m->gdel(i,j,0) + m->gdel(i,j,1)*m->gdel(i,j,1));
 			nx = m->gdel(i,j,0)/area;
 			ny = m->gdel(i,j,1)/area;
-			for(k = 0; k < nvar; k++)
+			for(int k = 0; k < NVARS; k++)
 				uhalf[k] = 0.5*(u[k](i,j) + u[k](i+1,j));
 
 			// get average of beta^2
@@ -178,22 +211,22 @@ void InviscidFlux::compute_fluxes()
 				g(i,2) = area*(rho*vdotn*uhalf[2] + uhalf[0]*ny);
 			}
 		}
-		for(i = 1; i <= m->gimx()-1; i++)
-			for(k = 0; k < nvar; k++)
+		for(int i = 1; i <= m->gimx()-1; i++)
+			for(int k = 0; k < NVARS; k++)
 				res[k](i,j) += g(i,k) - g(i-1,k);
 	}
 
 	// now we add contribution of j-fluxes
-	amat::Array2d<double> h(m->gjmx(),nvar);
+	amat::Array2d<double> h(m->gjmx(),NVARS);
 
-	for(i = 1; i <= m->gimx()-1; i++)
+	for(int i = 1; i <= m->gimx()-1; i++)
 	{
-		for(j = 0; j <= m->gjmx()-1; j++)
+		for(int j = 0; j <= m->gjmx()-1; j++)
 		{
 			area = sqrt(m->gdel(i,j,2)*m->gdel(i,j,2) + m->gdel(i,j,3)*m->gdel(i,j,3));
 			nx = m->gdel(i,j,2)/area;
 			ny = m->gdel(i,j,3)/area;
-			for(k = 0; k < nvar; k++)
+			for(int k = 0; k < NVARS; k++)
 				uhalf[k] = 0.5*(u[k](i,j) + u[k](i,j+1));
 			bhalf2 = 0.5*(beta->get(i,j)*beta->get(i,j) + beta->get(i,j+1)*beta->get(i,j+1));
 			vdotn = uhalf[1]*nx + uhalf[2]*ny;
@@ -218,8 +251,8 @@ void InviscidFlux::compute_fluxes()
 				h(j,2) = area*(rho*vdotn*uhalf[2] + uhalf[0]*ny); 
 			}
 		}
-		for(j = 1; j <= m->gjmx()-1; j++)
-			for(k = 0; k < nvar; k++)
+		for(int j = 1; j <= m->gjmx()-1; j++)
+			for(int k = 0; k < NVARS; k++)
 				res[k](i,j) += h(j,k) - h(j-1,k);
 	}
 }
