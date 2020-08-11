@@ -97,7 +97,8 @@ add_subdirectory(src)
 
 set_source_files_properties(tags PROPERTIES GENERATED true)
 add_custom_target ( tags
-    COMMAND ctags -R --c++-kinds=+pf --extra=+q . 
+	#COMMAND ctags -R --c++-kinds=+pf --extra=+q . 
+    COMMAND ctags -R . 
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} 
   )
 
